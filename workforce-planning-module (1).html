@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Smart Workforce Planning</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#eef0ec;--card:#fff;--ink:#12263a;--mut:#5b6b7a;--line:#d3d8d3;--ib:#1f7a8c;--ob:#e0a410;--iv:#7b5ea7;--ok:#2e8b57;--bad:#c8442f;--warn:#d98e04;--form:#f4f6f2}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1a25;--card:#172635;--ink:#e6edf3;--mut:#93a4b4;--line:#2a3d50;--ib:#4cb5c9;--ob:#f2bc3a;--iv:#a78bd4;--ok:#4fbf83;--bad:#ef7a66;--warn:#f0b040;--form:#1c2e40}}
+:root[data-theme="dark"]{--bg:#0f1a25;--card:#172635;--ink:#e6edf3;--mut:#93a4b4;--line:#2a3d50;--ib:#4cb5c9;--ob:#f2bc3a;--iv:#a78bd4;--ok:#4fbf83;--bad:#ef7a66;--warn:#f0b040;--form:#1c2e40}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 Barlow,system-ui,sans-serif}
+header{background:#12263a;color:#fff;padding:20px 20px 16px;border-bottom:4px solid #f2b01e}
+h1{font:700 26px "Barlow Condensed",sans-serif;margin:0 0 4px}
+header p{margin:0;color:#b9c7d4;font-size:13px;max-width:72ch}
+.ctl{display:flex;flex-wrap:wrap;gap:14px;padding:12px 20px;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.ctl label{display:flex;flex-direction:column;font-size:11px;color:var(--mut);gap:3px}
+.ctl input,.ctl select{font:500 14px Barlow,sans-serif;padding:5px 7px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);width:88px}
+main{max-width:980px;margin:0 auto;padding:20px 20px 50px}
+section{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:18px 20px;margin-bottom:18px}
+.tag{display:inline-block;font:600 11px "Barlow Condensed",sans-serif;letter-spacing:.03em;color:var(--mut);border:1px solid var(--line);border-radius:3px;padding:2px 7px;margin-bottom:6px}
+h2{font:700 22px "Barlow Condensed",sans-serif;margin:0 0 6px}
+.formula{font:500 14px "JetBrains Mono",monospace;background:var(--form);border-left:3px solid var(--ib);padding:10px 14px;border-radius:0 4px 4px 0;margin:10px 0;overflow-x:auto}
+.ex{font-size:13px;color:var(--mut);background:var(--form);border-radius:4px;padding:8px 12px;margin:8px 0}
+p{margin:8px 0}
+.wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px;margin-top:8px}
+th,td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--mut);font-weight:600}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;font-weight:600;color:#fff}
+.g{background:var(--ok)}.r{background:var(--bad)}.y{background:var(--warn)}
+.note{font-size:12.5px;color:var(--mut);margin-top:8px}
+</style></head><body>
+<header><h1>Smart Workforce Planning</h1>
+<p>Four linked capabilities, all built on one demand-to-headcount formula: automatic manpower calculation, optimal staffing recommendation, shift-level allocation, and resource-vs-demand matching. Demo data below is simulated.</p></header>
+<div class="ctl">
+<label>Utilisation target %<input id="u" type="number" value="85"></label>
+<label>Absence %<input id="a" type="number" value="12"></label>
+<label>Roster: Inbound<input id="r0" type="number" value="36"></label>
+<label>Roster: Outbound<input id="r1" type="number" value="44"></label>
+<label>Roster: Inventory<input id="r2" type="number" value="26"></label>
+<label>Scenario<select id="scn"><option value="1">Normal</option><option value="1.35">Peak</option><option value="0.8">Non-peak</option></select></label>
+<label>Morning share %<input id="sm" type="number" value="40"></label>
+<label>Afternoon share %<input id="sa" type="number" value="40"></label>
+</div>
+<main>
+
+<section><span class="tag">1 · Automatic manpower calculation</span>
+<h2>Turning forecasted volume into headcount</h2>
+<p>Each function's forecasted volume is divided by how much work one person realistically completes in a shift, then inflated to cover expected absence.</p>
+<div class="formula">People needed = ceil( Volume &divide; (Rate/hr &times; 8h &times; Utilisation) &divide; (1 &minus; Absence) )</div>
+<div id="ex1" class="ex"></div>
+<div class="wrap"><table id="t1"></table></div>
+</section>
+
+<section><span class="tag">2 · Recommend optimal staffing level</span>
+<h2>Classifying the gap, not just showing it</h2>
+<p>Gap = Available roster &minus; People needed. Available roster is 60% of the roster on Sat/Sun (fewer people scheduled). Below zero is always flagged &mdash; no tolerance, because understaffing risks service. Above zero, a 25% buffer of the need is allowed before it counts as overstaffed.</p>
+<div class="formula">Gap &lt; 0 &rarr; Shortfall (red)&#10;0 &le; Gap &le; 0.25&times;Need &rarr; Balanced (green)&#10;Gap &gt; 0.25&times;Need &rarr; Overstaffed (yellow)</div>
+<div class="wrap"><table id="t2"></table></div>
+</section>
+
+<section><span class="tag">3 · Support shift planning</span>
+<h2>Splitting the day's headcount across shifts</h2>
+<p>Once the day's total requirement is known, it's divided across Morning, Afternoon and Night using an editable share (defaults model a two-peak operation: heavier in the morning and afternoon, lighter overnight). Night always absorbs the rounding remainder so the three shifts sum exactly to the day's total.</p>
+<div class="formula">Morning = Morning% &times; N&#10;Afternoon = Afternoon% &times; N&#10;Night = N &minus; Morning &minus; Afternoon</div>
+<div class="wrap"><table id="t3"></table></div>
+</section>
+
+<section><span class="tag">4 · Match resources against forecasted demand</span>
+<h2>Same gap logic, three different views</h2>
+<p><b>Structural view</b> &mdash; average need across the whole horizon per function, compared once to the flat roster, to catch a standing imbalance rather than a single bad day.</p>
+<div class="wrap"><table id="t4"></table></div>
+<p style="margin-top:14px"><b>Scenario view</b> &mdash; the same roster tested against Non-peak / Normal / Peak demand, using the busiest day in each case.</p>
+<div class="wrap"><table id="t5"></table></div>
+<p class="note">Rates (Inbound 40/hr, Outbound 55/hr, Inventory 60/hr) and the 8h shift are placeholder benchmarks standing in for real time-and-motion data; the calculation structure is what this prototype demonstrates.</p>
+</section>
+</main>
+<script>
+const F=['Inbound','Outbound','Inventory'],RATE=[40,55,60],SH=8,BASE=[9000,12000,7000];
+const DOW=[[.45,1.2,1.1,1,.95,.9,.6],[.5,1.15,1.05,1,1,1.1,.7],[.7,1.05,1,1,1,1.05,.8]];
+const DN=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+let seed=9;const rnd=()=>(seed=seed*16807%2147483647)/2147483647;
+const today=new Date();today.setHours(0,0,0,0);
+const day=i=>new Date(today.getTime()+(i+1)*864e5);
+const fmt=d=>d.getDate()+' '+d.toLocaleString('en',{month:'short'});
+const H=14;
+const VOL=F.map((_,f)=>Array.from({length:H},(_,i)=>Math.round(BASE[f]*DOW[f][day(i).getDay()]*(1+(rnd()-.5)*.1))));
+const $=id=>document.getElementById(id);
+const req=(v,f,u,ab)=>Math.ceil(v/(RATE[f]*SH*u)/(1-ab));
+const avail=(f,dow,r)=>dow==0||dow==6?Math.round(r[f]*.6):r[f];
+const pill=g=>g<0?['r','Shortfall']:g>0?[null,null]:['g','Balanced'];
+function zone(gap,need){return gap<0?['r','Shortfall']:gap>0.25*need?['y','Overstaffed']:['g','Balanced']}
+function render(){
+ const u=+$('u').value/100,ab=+$('a').value/100,r=[+$('r0').value,+$('r1').value,+$('r2').value],k=+$('scn').value,ms=+$('sm').value/100,as=+$('sa').value/100;
+ const V=VOL.map(a=>a.map(v=>Math.round(v*k)));
+ const N=F.map((_,f)=>V[f].map(v=>req(v,f,u,ab)));
+ // table 1
+ const j0=2;
+ $('ex1').textContent=`Example — ${F[1]}, ${DN[day(j0).getDay()]} ${fmt(day(j0))}: Volume ${V[1][j0].toLocaleString()} ÷ (${RATE[1]}×8×${u}) ÷ (1−${ab}) = ${N[1][j0]} people`;
+ $('t1').innerHTML='<tr><th>Day</th>'+F.map(n=>`<th>${n} volume</th>`).join('')+F.map(n=>`<th>${n} need</th>`).join('')+'</tr>'+
+  V[0].map((_,j)=>`<tr><td>${DN[day(j).getDay()]} ${fmt(day(j))}</td>${F.map((_,f)=>`<td>${V[f][j].toLocaleString()}</td>`).join('')}${F.map((_,f)=>`<td><b>${N[f][j]}</b></td>`).join('')}</tr>`).join('');
+ // table 2
+ $('t2').innerHTML='<tr><th>Day</th>'+F.map(n=>`<th>${n}</th>`).join('')+'</tr>'+
+  V[0].map((_,j)=>{const d=day(j).getDay();return `<tr><td>${DN[d]} ${fmt(day(j))}</td>${F.map((_,f)=>{const av=avail(f,d,r),g=av-N[f][j],[c,t]=zone(g,N[f][j]);return `<td>${av} vs ${N[f][j]} <span class="pill ${c}">${g>=0?'+':''}${g} ${t}</span></td>`}).join('')}</tr>`}).join('');
+ // table 3
+ $('t3').innerHTML='<tr><th>Day</th>'+F.flatMap(n=>[`<th>${n} Morn</th>`,`<th>${n} Aft</th>`,`<th>${n} Night</th>`]).join('')+'</tr>'+
+  V[0].map((_,j)=>`<tr><td>${DN[day(j).getDay()]} ${fmt(day(j))}</td>${F.map((_,f)=>{const n=N[f][j],m=Math.round(n*ms),a=Math.round(n*as),ni=n-m-a;return `<td>${m}</td><td>${a}</td><td>${ni}</td>`}).join('')}</tr>`).join('');
+ // table 4 structural
+ const avgN=F.map((_,f)=>N[f].reduce((a,b)=>a+b,0)/H);
+ $('t4').innerHTML='<tr><th>Function</th><th>Avg need / day</th><th>Roster</th><th>Surplus</th><th>Status</th></tr>'+
+  F.map((n,f)=>{const s=r[f]-avgN[f],[c,t]=zone(s,avgN[f]);return `<tr><td>${n}</td><td>${avgN[f].toFixed(1)}</td><td>${r[f]}</td><td>${s>=0?'+':''}${s.toFixed(1)}</td><td><span class="pill ${c}">${t}</span></td></tr>`}).join('');
+ // table 5 scenario
+ const scs=[['Non-peak',.8],['Normal',1],['Peak',1.35]];
+ $('t5').innerHTML='<tr><th>Scenario</th>'+F.map(n=>`<th>${n} peak-day need</th>`).join('')+'<th>Total</th><th>Roster</th><th>Gap</th></tr>'+
+  scs.map(([name,m])=>{const rq=F.map((_,f)=>Math.max(...VOL[f].map(v=>req(v*m,f,u,ab)))),tot=rq.reduce((a,b)=>a+b,0),tr=r.reduce((a,b)=>a+b,0),g=tr-tot;
+   return `<tr><td>${name}</td>${rq.map(x=>`<td>${x}</td>`).join('')}<td><b>${tot}</b></td><td>${tr}</td><td><span class="pill ${g<0?'r':g>tot*.25?'y':'g'}">${g>=0?'+':''}${g}</span></td></tr>`}).join('');
+}
+document.querySelectorAll('.ctl input,.ctl select').forEach(e=>e.oninput=render);
+render();
+</script></body></html>
